@@ -1,0 +1,26 @@
+#!/bin/bash
+
+app=$YNH_APP_INSTANCE_NAME
+
+# Source YunoHost helpers
+	source /usr/share/yunohost/helpers
+
+# Retrieve app settings
+	domain=$(ynh_app_setting_get "$app" domain)
+
+# Remove sources
+	sudo rm -rf /usr/share/${app}
+	sudo rm -rf /home/yunohost.app/${app}
+	sudo rm /var/www/${app}
+
+# Remove nginx configuration file
+	sudo rm -f /etc/nginx/conf.d/$domain.d/$app.conf
+
+# Remove MySQL
+	dbname=$app
+	dbuser=$app
+	ynh_mysql_drop_db "$dbname" || true
+	ynh_mysql_drop_user "$dbuser" || true
+
+# Reload nginx service
+	sudo service nginx reload

@@ -1,0 +1,49 @@
+#!/bin/bash
+
+# Exit on command errors and treat unset variables as an error
+set -eu
+
+app=$YNH_APP_INSTANCE_NAME
+
+# Source YunoHost helpers
+	source /usr/share/yunohost/helpers
+
+# Retrieve app settings
+	domain=$(ynh_app_setting_get "$app" domain)
+	path=$(ynh_app_setting_get "$app" path)
+	language=$(ynh_app_setting_get "$app" language)
+
+# Remove trailing "/" for next commands
+	path=${path%/}
+
+# Create directories
+	src_path=/usr/share/${app}
+	data_path=/home/yunohost.app/${app}
+	public_path=/var/www/${app}
+	sudo mkdir -p $src_path
+	sudo mkdir -p $data_path
+	sudo mkdir -p $data_path/attachments
+	sudo mkdir -p $data_path/users
+	
+# Copy source files
+	wget https://github.com/jasonmunro/cypht/archive/master.zip
+	unzip master.zip
+	sudo mv cypht-master $src_path
+
+# Set permissions to app files
+	find $src_path -type d -print | xargs chmod 755
+	find $src_path -type f -print | xargs chmod 644
+	sudo chown -R root:root $src_path
+	sudo chown -R www-data $data_path
+
+# Finish the installation
+	sudo php $src_path/script/config_gen.php
+	sudo ln -s $src_path $public_path
+
+# Modify Nginx configuration file and copy it to Nginx conf directory
+	nginx_conf=../conf/nginx.conf
+	sed -i "s@YNH_WWW_PATH@$path@g" $nginx_conf
+	sed -i "s@YNH_WWW_ALIAS@$src_path/@g" $nginx_conf
+
+# Reload nginx service
+	sudo service nginx reload

@@ -1,0 +1,74 @@
+#!/bin/bash
+
+# Exit on command errors and treat unset variables as an error
+set -eu
+
+app=$YNH_APP_INSTANCE_NAME
+
+# Source YunoHost helpers
+	source /usr/share/yunohost/helpers
+
+# Retrieve arguments
+	domain=$YNH_APP_ARG_DOMAIN
+	path=$YNH_APP_ARG_PATH
+	language=$YNH_APP_ARG_LANGUAGE
+	label=$(ynh_app_setting_get "$app" label)
+
+# Save app settings
+	ynh_app_setting_set "$app" language "$language"
+
+# Check domain/path availability
+	sudo yunohost app checkurl "${domain}${path}" -a "$app" \
+		|| ynh_die "Path not available: ${domain}${path}"
+
+# Create directories
+	src_path=/usr/share/${app}
+	data_path=/home/yunohost.app/${app}
+	public_path=/var/www/${app}
+	sudo mkdir -p $src_path
+	sudo mkdir -p $data_path
+	sudo mkdir -p $data_path/attachments
+	sudo mkdir -p $data_path/users
+	
+# Copy source files
+	wget https://github.com/jasonmunro/cypht/archive/master.zip
+	unzip master.zip
+	sudo mv cypht-master $src_path
+
+# MySQL
+	dbuser=$app
+	dbname=$app
+	dbpass=$(ynh_string_random 12)
+	ynh_app_setting_set "$app" mysqlpwd "$dbpass"
+	ynh_mysql_create_db "$dbname" "$dbuser" "$dbpass"
+
+# Configure Cypht
+	sudo cp ../conf/hm3.yunohost.ini $src_path/hm3.ini
+	sudo sed -i -e "s/#APP#/${app}/g" $src_path/hm3.ini
+	sudo sed -i -e "s/#APP_LABEL#/${label}/g" $src_path/hm3.ini
+	sudo sed -i -e "s/#APP_LANGUAGE#/${language}/g" $src_path/hm3.ini
+	sudo sed -i -e "s/#DBUSER#/${dbuser}/g" $src_path/hm3.ini
+	sudo sed -i -e "s/#DBNAME#/${dbname}/g" $src_path/hm3.ini
+	sudo sed -i -e "s/#DBPASS#/${dbpass}/g" $src_path/hm3.ini
+	
+	ynh_mysql_connect_as "$dbuser" "$dbpass" "$dbname" \
+		< "../conf/mysql.init.sql"
+
+# Set permissions to app files
+	find $src_path -type d -print | xargs chmod 755
+	find $src_path -type f -print | xargs chmod 644
+	sudo chown -R root:root $src_path
+	sudo chown -R www-data $data_path
+	
+# Finish the installation
+	sudo php $src_path/script/config_gen.php
+	sudo ln -s $src_path $public_path
+
+# Modify Nginx configuration file and copy it to Nginx conf directory
+	nginx_conf=../conf/nginx.conf
+	sed -i "s@YNH_WWW_PATH@$path@g" $nginx_conf
+	sed -i "s@YNH_WWW_ALIAS@$src_path/@g" $nginx_conf
+	sudo cp $nginx_conf /etc/nginx/conf.d/$domain.d/$app.conf
+
+# Reload services
+	sudo service nginx reload
