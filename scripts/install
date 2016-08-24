@@ -31,9 +31,9 @@ app=$YNH_APP_INSTANCE_NAME
 	sudo mkdir -p $data_path/users
 	
 # Copy source files
-	wget https://github.com/jasonmunro/cypht/archive/master.zip
-	unzip master.zip
-	sudo mv cypht-master $src_path
+	wget -qq https://github.com/jasonmunro/cypht/archive/master.zip
+	unzip -qq master.zip
+	sudo cp -a cypht-master/. $src_path
 
 # MySQL
 	dbuser=$app
@@ -55,13 +55,13 @@ app=$YNH_APP_INSTANCE_NAME
 		< "../conf/mysql.init.sql"
 
 # Set permissions to app files
-	find $src_path -type d -print | xargs chmod 755
-	find $src_path -type f -print | xargs chmod 644
+	find $src_path -type d -print | sudo xargs chmod 755
+	find $src_path -type f -print | sudo xargs chmod 644
 	sudo chown -R root:root $src_path
 	sudo chown -R www-data $data_path
 	
 # Finish the installation
-	sudo php $src_path/script/config_gen.php
+	sudo php $src_path/scripts/config_gen.php
 	sudo ln -s $src_path $public_path
 
 # Modify Nginx configuration file and copy it to Nginx conf directory

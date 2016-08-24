@@ -39,8 +39,8 @@
                     "en": "Choose a path for Cypht",
                     "fr": "Choisissez un chemin pour Cypht"
                 },
-                "example": "/example",
-                "default": "/example"
+                "example": "/webmail",
+                "default": "/webmail"
             },
             {
                 "name": "language",
